@@ -37,52 +37,40 @@ func waitContainer() error {
 	}()
 
 	// Wait for main container to complete
-	waitErr := wfExecutor.Wait()
-	if waitErr != nil {
-		wfExecutor.AddError(waitErr)
-		// do not return here so we can still try to kill sidecars & save outputs
-	}
-
-	// Capture output script result
-	err := wfExecutor.CaptureScriptResult()
+	err := wfExecutor.Wait(ctx)
 	if err != nil {
 		wfExecutor.AddError(err)
-		return err
+	}
+	// Capture output script result
+	err = wfExecutor.CaptureScriptResult()
+	if err != nil {
+		wfExecutor.AddError(err)
 	}
 	// Capture output script exit code
 	err = wfExecutor.CaptureScriptExitCode()
 	if err != nil {
 		wfExecutor.AddError(err)
-		return err
 	}
 	// Saving logs
 	logArt, err := wfExecutor.SaveLogs()
 	if err != nil {
 		wfExecutor.AddError(err)
-		return err
 	}
 	// Saving output parameters
 	err = wfExecutor.SaveParameters()
 	if err != nil {
 		wfExecutor.AddError(err)
-		return err
 	}
 	// Saving output artifacts
 	err = wfExecutor.SaveArtifacts()
 	if err != nil {
 		wfExecutor.AddError(err)
-		return err
 	}
-	err = wfExecutor.AnnotateOutputs(logArt)
+	// Annotating pod with output
+	err = wfExecutor.AnnotateOutputs(ctx, logArt)
 	if err != nil {
 		wfExecutor.AddError(err)
-		return err
 	}
 
-	// To prevent the workflow step from completing successfully, return the error occurred during wait.
-	if waitErr != nil {
-		return waitErr
-	}
-
-	return nil
+	return wfExecutor.HasError()
 }
